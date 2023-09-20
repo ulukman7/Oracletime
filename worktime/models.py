@@ -1,5 +1,5 @@
 import datetime
-from datetime import timedelta,time,timezone
+from datetime import timedelta, time, timezone
 
 from django.db import models
 
@@ -8,6 +8,16 @@ class Office(models.Model):
     name = models.CharField(max_length=200)
     location = models.CharField(max_length=255)
     bluetooth = models.CharField(max_length=255)
+    start_time_default = models.TimeField(null=True, blank=True, default='10:00:00')
+    end_time_default = models.TimeField(null=True, blank=True, default='19:00:00')
+
+    def __str__(self):
+        return self.name
+
+
+class Currency(models.Model):
+    name = models.CharField(max_length=3)
+    value = models.IntegerField()
 
     def __str__(self):
         return self.name
@@ -20,62 +30,63 @@ class Employee(models.Model):
     phone_id = models.IntegerField()
     salary = models.IntegerField()
     daily_salary = models.IntegerField()
-    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name='офис')
+    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name='employee')
     post = models.CharField(max_length=50)
     penalty = models.IntegerField()
-    start_time = models.DateTimeField(auto_now_add=True)
-    end_time = models.DateTimeField(auto_now_add=True)
-
-    def calculate_late_arrival(self):
-        late_arrival_time = datetime.time(4)
-        start_time = self.start_time.time()
-
-        if start_time > late_arrival_time:
-            late_hours = start_time.hour - late_arrival_time.hour
-            late_minutes = start_time.minute - late_arrival_time.minute
-            return f"{late_hours} часов {late_minutes} минут"
-        else:
-            return "Без опоздания"
-
 
 
     def __str__(self):
         return self.first_name
+    # def get_late_sum(self):
+    #     sum = '00:00:00'
+    #     for i in self.attendance.all():
+    #         sum += i.
+    # def __str__(self):
+    #     return self.first_name
 
-    def get_attendances(self):
-        return self.attendance_set.order_by('date')
 
-class Advance(models.Model):
-    employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
-    advance = models.IntegerField()
+class Attendance(models.Model):
+    employee = models.ForeignKey(Employee,on_delete=models.CASCADE, related_name='attendance', null=True, blank=True)
+    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name='office', null=True, blank=True)
     date = models.DateField(auto_now_add=True)
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+
+    def calculate_lateness(self):
+        if self.start_time and self.office.start_time_default:
+            start_datetime = datetime.datetime.combine(self.date, self.start_time)
+            default_start_time = datetime.datetime.combine(self.date, self.office.start_time_default)
+            if start_datetime > default_start_time:
+                lateness_timedelta = start_datetime - default_start_time
+                return lateness_timedelta.total_seconds() / 60  # Convert to minutes
+        return 0
+
+    calculate_lateness.short_description = 'Lateness (minutes)'
+
+    def late_penalty(self):
+        late = int(self.calculate_lateness())
+        penalty = self.employee.penalty
+        late_penalty = penalty*late
+        return late_penalty
+
+    def penalty_salary(self):
+        daily_salary = self.employee.daily_salary
+        penalty = self.late_penalty()
+        total_salary = daily_salary - penalty
+        return total_salary
+
 
     def __str__(self):
         return str(self.id)
 
 
-class Attendance(models.Model):
-    employee = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, related_name="сотрудник")
-    office = models.ForeignKey(Office, on_delete=models.CASCADE)
+class Advance(models.Model):
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE , null=True, blank=True)
+    advance = models.IntegerField()
     date = models.DateField(auto_now_add=True)
-    start_time_default = models.DateTimeField()
-    end_time_default = models.DateTimeField()
 
-    def calculate_late_arrival(self):
-        late_arrival_time = datetime.time(10, 0)  # Время начала работы, 10:00
-
-        # Убедитесь, что start_time_default и start_time имеют совместимые форматы
-        if self.start_time_default and self.start_time:
-            late_duration = self.start_time_default - self.start_time
-            return late_duration
-        else:
-            return timedelta(0)
-    def __str__(self):
-        return str(self.employee)
-
-class Currency(models.Model):
-    name = models.CharField(max_length=3)
-    value = models.IntegerField()
 
     def __str__(self):
-        return self.name
+        return str(self.id)
+
+
