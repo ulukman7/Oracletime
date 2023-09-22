@@ -21,7 +21,7 @@ view_attendance.short_description = "View Attendance"
 
 def start_timer(modeladmin, request, queryset):
     now = timezone.now()
-    tz = pytz.timezone('Asia/Bishkek')  # Замените 'ВАШ_ЧАСОВОЙ_ПОЯС' на нужный вам часовой пояс
+    tz = pytz.timezone('Asia/Bishkek')
     now = now.astimezone(tz)
     for employee in queryset:
         office = employee.office
