@@ -7,7 +7,6 @@ class Office(models.Model):
     location = models.CharField(max_length=255)
     bluetooth = models.CharField(max_length=255)
 
-
     def __str__(self):
         return self.name
 
@@ -30,10 +29,9 @@ class Employee(models.Model):
     office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name='employee')
     post = models.CharField(max_length=50)
     penalty = models.IntegerField()
-    start_time_default = models.TimeField(default='10:00:00')
-    end_time_default = models.TimeField(default='19:00:00')
+    getting_started = models.TimeField(default='10:00:00')
+    end_workday = models.TimeField(default='19:00:00')
     deadline = models.TimeField(default='16:00:00')
-
 
     def __str__(self):
         return self.first_name
@@ -43,20 +41,21 @@ class Attendance(models.Model):
     employee = models.ForeignKey(Employee,on_delete=models.CASCADE, related_name='attendance', null=True, blank=True)
     office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name='office', null=True, blank=True)
     date = models.DateField(auto_now_add=True)
-    start_time = models.TimeField()
-    end_time = models.TimeField()
+    arrival_time = models.TimeField(blank=True, null=True)
+    care_time = models.TimeField(blank=True, null=True)
+    lateness = models.IntegerField(null=True, blank=True, default=0)
+    late_penalty = models.IntegerField(null=True, blank=True, )
 
     def calculate_lateness(self):
-        if self.start_time and self.employee.start_time_default:
-            start_datetime = datetime.datetime.combine(self.date, self.start_time)
-            default_start_time = datetime.datetime.combine(self.date, self.employee.start_time_default)
+        if self.arrival_time and self.employee.getting_started:
+            start_datetime = datetime.datetime.combine(self.date, self.arrival_time)
+            default_start_time = datetime.datetime.combine(self.date, self.employee.getting_started)
             if start_datetime > default_start_time:
                 lateness_timedelta = start_datetime - default_start_time
-                return int(lateness_timedelta.total_seconds() / 60)
+                lateness_minutes = int(lateness_timedelta.total_seconds() / 60)
+                return lateness_minutes
         return 0
-
-    calculate_lateness.short_description = 'Lateness (minutes)'
-
+    calculate_lateness.short_description = 'Опоздание (минуты)'
     def late_penalty(self):
         late = int(self.calculate_lateness())
         penalty = self.employee.penalty
@@ -69,17 +68,14 @@ class Attendance(models.Model):
         total_salary = daily_salary - penalty
         return total_salary
 
-
-
     def __str__(self):
         return str(self.id)
 
 
 class Advance(models.Model):
-    employee = models.ForeignKey(Employee, on_delete=models.CASCADE , null=True, blank=True)
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, null=True, blank=True)
     advance = models.IntegerField()
     date = models.DateField(auto_now_add=True)
-
 
     def __str__(self):
         return str(self.id)

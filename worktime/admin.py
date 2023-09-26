@@ -1,8 +1,11 @@
 from django.contrib import admin
 from .models import Attendance, Employee, Office, Advance , Currency
-from .views import start_timer, stop_timer, view_attendance
+from .views import start_timer, stop_timer
 from django.urls import reverse
 from django.utils.html import format_html
+from admin_totals.admin import ModelAdminTotals
+from django.db.models import Sum, Avg
+from django.db.models.functions import Coalesce
 
 # Register your models here.
 admin.site.register(Office)
@@ -17,7 +20,7 @@ class AdvanceInline(admin.TabularInline):
 @admin.register(Employee)
 class EmployeeAdmin(admin.ModelAdmin):
     inlines = [AdvanceInline]
-    actions = [view_attendance, start_timer, stop_timer, ]
+    actions = [ start_timer, stop_timer, ]
     list_display = ['employee_link',  'salary', 'daily_salary', 'office', 'post',]
 
     def employee_link(self, obj):
@@ -27,10 +30,10 @@ class EmployeeAdmin(admin.ModelAdmin):
 
 #
 @admin.register(Attendance)
-class AttendanceAdmin(admin.ModelAdmin):
-    list_display = ['employee_link', 'office', 'employee_daily_salary', 'date', 'start_time', 'end_time', 'calculate_lateness', 'late_penalty', 'penalty_salary', ]
+class AttendanceAdmin(ModelAdminTotals):
+    list_display = ['employee_link', 'office', 'employee_daily_salary', 'date', 'arrival_time', 'care_time', 'calculate_lateness', 'late_penalty', 'penalty_salary', ]
     list_filter = ('date',)
-
+    list_totals = [('daily_salary', lambda field: Coalesce(Sum(field), 0)),]
 
     def employee_link(self, obj):
         url = reverse('admin:worktime_employee_change', args=[obj.employee.id])
